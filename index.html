@@ -250,7 +250,7 @@ tbody tr:nth-child(even) td{background:#f8fafc}
       <div class="cardHead">
         <div>
           <h2>Banco</h2>
-          <div class="hint">Carga imágenes (carpeta o selección múltiple). Listado con selección y eliminación.</div>
+          <div class="hint">Carga imágenes (carpeta o selección múltiple). Las de alta resolución se reducen automáticamente para aligerar el exportable.</div>
         </div>
         <button class="cardToggle" type="button" data-toggle="bankCard" aria-label="Expandir/contraer Banco">Banco</button>
       </div>
@@ -632,13 +632,129 @@ function uniqName(base, usedMap){
   usedMap.set(key,n);
   return key+" ("+n+")";
 }
-function readFileAsDataUrl(file){
+const IMG_AUTO_OPT = {
+  enabled: true,
+  maxDimension: 1600,      // px (ancho o alto máximo)
+  minBytesToProcess: 350*1024,
+  jpegQuality: 0.82,
+  webpQuality: 0.82
+};
+function readFileAsDataUrlRaw(file){
   return new Promise((resolve,reject)=>{
     const fr=new FileReader();
     fr.onload=()=>resolve(fr.result);
     fr.onerror=()=>reject(new Error("No se pudo leer el archivo"));
     fr.readAsDataURL(file);
   });
+}
+function approxBytesFromDataUrl(dataUrl){
+  const s = String(dataUrl||"");
+  const comma = s.indexOf(",");
+  const b64 = comma>=0 ? s.slice(comma+1) : s;
+  if(!b64) return 0;
+  const pad = b64.endsWith("==") ? 2 : (b64.endsWith("=") ? 1 : 0);
+  return Math.max(0, Math.floor((b64.length * 3) / 4) - pad);
+}
+function loadImgFromDataUrl(dataUrl){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.onload = ()=>resolve(img);
+    img.onerror = ()=>reject(new Error("No se pudo decodificar la imagen"));
+    img.src = dataUrl;
+  });
+}
+async function optimizeImageForBank(file){
+  const rawDataUrl = await readFileAsDataUrlRaw(file);
+
+  if(!IMG_AUTO_OPT.enabled) return { dataUrl: rawDataUrl, outBytes: Number(file.size||0), optimized:false, resized:false };
+
+  const ext = extLower(file?.name||"");
+  const raster = ["jpg","jpeg","png","webp","bmp","avif","tif","tiff"].includes(ext) || (file?.type||"").startsWith("image/");
+  const keepOriginal = ["svg","gif","ico"].includes(ext);
+
+  if(keepOriginal || !raster) {
+    return { dataUrl: rawDataUrl, outBytes: Number(file.size||0), optimized:false, resized:false };
+  }
+
+  // Evita reprocesar archivos ya pequeños
+  if(Number(file.size||0) < IMG_AUTO_OPT.minBytesToProcess){
+    return { dataUrl: rawDataUrl, outBytes: Number(file.size||0), optimized:false, resized:false };
+  }
+
+  let img;
+  try{
+    img = await loadImgFromDataUrl(rawDataUrl);
+  }catch(_e){
+    return { dataUrl: rawDataUrl, outBytes: Number(file.size||0), optimized:false, resized:false };
+  }
+
+  const ow = Math.max(1, img.naturalWidth || img.width || 1);
+  const oh = Math.max(1, img.naturalHeight || img.height || 1);
+  const maxSide = Math.max(ow, oh);
+  const needResize = maxSide > IMG_AUTO_OPT.maxDimension;
+
+  // Si no es alta resolución, se conserva (evita pérdidas innecesarias)
+  if(!needResize){
+    return { dataUrl: rawDataUrl, outBytes: Number(file.size||0), optimized:false, resized:false };
+  }
+
+  const scale = IMG_AUTO_OPT.maxDimension / maxSide;
+  const tw = Math.max(1, Math.round(ow * scale));
+  const th = Math.max(1, Math.round(oh * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = tw; canvas.height = th;
+  const ctx = canvas.getContext('2d', { alpha: true });
+  if(!ctx){
+    return { dataUrl: rawDataUrl, outBytes: Number(file.size||0), optimized:false, resized:false };
+  }
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, tw, th);
+
+  // Mantener formato cuando sea posible; JPEG/WEBP con compresión, PNG sin pérdida.
+  const srcType = (file?.type||"").toLowerCase();
+  let outType = 'image/jpeg';
+  let quality = IMG_AUTO_OPT.jpegQuality;
+
+  if(srcType === 'image/png' || ext === 'png'){
+    outType = 'image/png';
+    quality = undefined;
+  } else if(srcType === 'image/webp' || ext === 'webp'){
+    outType = 'image/webp';
+    quality = IMG_AUTO_OPT.webpQuality;
+  } else if(srcType === 'image/jpeg' || srcType === 'image/jpg' || ext === 'jpg' || ext === 'jpeg'){
+    outType = 'image/jpeg';
+    quality = IMG_AUTO_OPT.jpegQuality;
+  } else {
+    // Formatos no compatibles con toDataURL (avif/tiff/bmp en algunos navegadores): fallback seguro a JPEG.
+    outType = 'image/jpeg';
+    quality = IMG_AUTO_OPT.jpegQuality;
+  }
+
+  let outDataUrl;
+  try{
+    outDataUrl = (typeof quality === 'number') ? canvas.toDataURL(outType, quality) : canvas.toDataURL(outType);
+  }catch(_e){
+    try{
+      outType = 'image/jpeg';
+      outDataUrl = canvas.toDataURL(outType, IMG_AUTO_OPT.jpegQuality);
+    }catch(_e2){
+      return { dataUrl: rawDataUrl, outBytes: Number(file.size||0), optimized:false, resized:false };
+    }
+  }
+
+  const outBytes = approxBytesFromDataUrl(outDataUrl);
+  // Si la conversión quedó más pesada, conservar la original
+  if(outBytes > 0 && Number(file.size||0) > 0 && outBytes >= Number(file.size||0)){
+    return { dataUrl: rawDataUrl, outBytes: Number(file.size||0), optimized:false, resized:false };
+  }
+
+  return { dataUrl: outDataUrl, outBytes: outBytes || Number(file.size||0), optimized:true, resized:true };
+}
+async function readFileAsDataUrl(file){
+  const r = await optimizeImageForBank(file);
+  return r.dataUrl;
 }
 function shuffle(arr){
   for(let i=arr.length-1;i>0;i--){
@@ -898,13 +1014,14 @@ async function addFiles(fileList){
     }
 
     try{
-      const dataUrl = await readFileAsDataUrl(f);
+      const opt = await optimizeImageForBank(f);
+      const dataUrl = opt.dataUrl;
 
       let base = stripExtension(f.name||"Imagen");
       base = state.config.normalizeOnLoad ? normalizeName(base) : base;
       const name = uniqName(base, used);
 
-      added.push({ id:newId(), name, dataUrl, sizeBytes:Number(f.size||0), ext:extLower(f.name||""), valid:true, selected:false });
+      added.push({ id:newId(), name, dataUrl, sizeBytes:Number(opt.outBytes||f.size||0), ext:extLower(f.name||""), valid:true, selected:false });
     }catch(e){
       added.push({ id:newId(), name:stripExtension(f.name||"archivo"), dataUrl:null, sizeBytes:Number(f.size||0), ext:extLower(f.name||""), valid:false, selected:false });
     }
