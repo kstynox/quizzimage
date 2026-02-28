@@ -639,6 +639,27 @@ const IMG_AUTO_OPT = {
   jpegQuality: 0.82,
   webpQuality: 0.82
 };
+
+
+/* ============================================================
+   EXPORT SIZE LIMIT (HTML)
+   - Límite fijo: 25 MB (tamaño del HTML final)
+   - Si el exportable supera el límite, se optimizan imágenes en el momento de Generar
+============================================================ */
+const EXPORT_MAX_MB = 25;
+const EXPORT_MAX_BYTES = EXPORT_MAX_MB * 1024 * 1024;
+// margen por overhead del HTML/JS/CSS y pequeñas variaciones
+const EXPORT_TARGET_BYTES = Math.floor(EXPORT_MAX_BYTES * 0.985);
+
+function supportsWebp(){
+  try{
+    const c=document.createElement("canvas");
+    if(!c.getContext) return false;
+    return c.toDataURL("image/webp").startsWith("data:image/webp");
+  }catch(e){ return false; }
+}
+const EXPORT_WEBP_OK = supportsWebp();
+
 function readFileAsDataUrlRaw(file){
   return new Promise((resolve,reject)=>{
     const fr=new FileReader();
@@ -783,9 +804,13 @@ function setProgress(on,cur=0,total=0){
   el.progTxt.textContent=on?("Cargando "+cur+" / "+total+" ("+pct+"%)"):"—";
 }
 function estimateExportBytes(){
-  let sum = 24000;
+  // Estima el tamaño del HTML final (la imagen se embebe como Base64 en texto).
+  // Nota: es una estimación rápida; el tamaño real se valida con Blob al exportar.
+  let sum = 65000; // overhead fijo aprox (HTML/CSS/JS)
   for(const it of state.dbImages){
-    if(it.valid && it.dataUrl) sum += it.dataUrl.length;
+    if(it.valid && it.dataUrl){
+      sum += it.dataUrl.length + 220 + (it.name||"").length;
+    }
   }
   return sum;
 }
@@ -970,6 +995,10 @@ function validate(){
     warns.push("Export estimado ~"+(estMb>=10?estMb.toFixed(0):estMb.toFixed(1))+" MB (aviso: "+state.config.warnMb+" MB).");
   }
 
+if(isFinite(estMb) && estMb > EXPORT_MAX_MB){
+  warns.push("Límite fijo: "+EXPORT_MAX_MB+" MB. Al generar se aplicará optimización automática para intentar quedar ≤ "+EXPORT_MAX_MB+" MB.");
+}
+
   if(valid>0) oks.push("Banco listo: "+valid+" imagen(es) válida(s).");
 
   el.vErr.style.display = issues.length ? "" : "none";
@@ -1129,8 +1158,8 @@ function renderPreview(){
 /* ============================================================
    EXPORT: BUILD HTML
 ============================================================ */
-function buildExportHtml(){
-  const payload = {
+function buildPayloadFromState(){
+  return {
     app:"Quizz Image",
     version:"3.3.0",
     createdAtIso:new Date().toISOString(),
@@ -1152,6 +1181,128 @@ function buildExportHtml(){
       .filter(x=>x.valid)
       .map(x=>({id:x.id, name:x.name, dataUrl:x.dataUrl, ext:x.ext||"", sizeBytes:x.sizeBytes||0}))
   };
+}
+
+async function transcodeDataUrlForExport(dataUrl, maxDim, quality){
+  if(!dataUrl) return null;
+  const lower = String(dataUrl).slice(0,40).toLowerCase();
+  if(lower.startsWith("data:image/svg") || lower.startsWith("data:image/gif")) return null;
+
+  let img;
+  try{ img = await loadImgFromDataUrl(dataUrl); }catch(_e){ return null; }
+
+  const ow = Math.max(1, img.naturalWidth || img.width || 1);
+  const oh = Math.max(1, img.naturalHeight || img.height || 1);
+  const maxSide = Math.max(ow, oh);
+  const scale = (maxSide > maxDim) ? (maxDim / maxSide) : 1;
+
+  const tw = Math.max(1, Math.round(ow * scale));
+  const th = Math.max(1, Math.round(oh * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = tw; canvas.height = th;
+
+  const ctx = canvas.getContext("2d", {alpha:true});
+  if(!ctx) return null;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, tw, th);
+
+  const outType = EXPORT_WEBP_OK ? "image/webp" : "image/jpeg";
+  try{
+    return canvas.toDataURL(outType, quality);
+  }catch(_e){
+    try{
+      return canvas.toDataURL("image/jpeg", quality);
+    }catch(_e2){
+      return null;
+    }
+  }
+}
+
+async function optimizePayloadForMaxSize(payload, onProgress){
+  const p = { ...payload, dbImages: payload.dbImages.map(x=>({ ...x })) };
+
+  // Paso rápido: si el HTML ya queda bajo el límite, no tocar nada
+  let html = buildExportHtml(p);
+  let sizeBytes = new Blob([html], {type:"text/html;charset=utf-8"}).size;
+  if(sizeBytes <= EXPORT_MAX_BYTES){
+    return { payload: p, html, sizeBytes, optimized:false };
+  }
+
+  // Optimización progresiva: reduce dimensión y calidad (preferentemente a WEBP si el navegador lo soporta)
+  const steps = [
+    {maxDim:1600, q:0.80},
+    {maxDim:1400, q:0.76},
+    {maxDim:1200, q:0.72},
+    {maxDim:1100, q:0.68},
+    {maxDim:1000, q:0.62},
+    {maxDim:900,  q:0.58},
+    {maxDim:800,  q:0.54}
+  ];
+
+  // Procesar primero las imágenes más pesadas (por longitud del DataURL)
+  const order = p.dbImages
+    .map((im,i)=>({i, w:(im.dataUrl?im.dataUrl.length:0)}))
+    .sort((a,b)=>b.w-a.w)
+    .map(x=>x.i);
+
+  let changed = false;
+
+  for(let s=0; s<steps.length && sizeBytes > EXPORT_MAX_BYTES; s++){
+    const st = steps[s];
+
+    for(let k=0; k<order.length && sizeBytes > EXPORT_MAX_BYTES; k++){
+      const i = order[k];
+      const im = p.dbImages[i];
+      if(!im || !im.dataUrl) continue;
+
+      const src = im.dataUrl;
+      const srcLen = src.length;
+
+      // Heurística: si ya está pequeño, evitar reprocesar en pasos suaves
+      if(srcLen < 140000 && st.maxDim >= 1100 && st.q >= 0.68) continue;
+
+      const out = await transcodeDataUrlForExport(src, st.maxDim, st.q);
+      if(out && out.length > 0 && out.length < srcLen){
+        im.dataUrl = out;
+        im.sizeBytes = approxBytesFromDataUrl(out) || im.sizeBytes || 0;
+        changed = true;
+      }
+
+      if(typeof onProgress === "function"){
+        onProgress({step:s+1, stepTotal:steps.length, item:k+1, itemTotal:order.length});
+      }
+
+      // ceder el hilo para que el navegador no se congele
+      if(k % 3 === 0) await new Promise(r=>setTimeout(r,0));
+
+      // Validar tamaño real (Blob) periódicamente sin reconstruir a cada imagen
+      if(k % 8 === 0){
+        html = buildExportHtml(p);
+        sizeBytes = new Blob([html], {type:"text/html;charset=utf-8"}).size;
+      }
+    }
+
+    // Validación al final de cada paso
+    html = buildExportHtml(p);
+    sizeBytes = new Blob([html], {type:"text/html;charset=utf-8"}).size;
+  }
+
+  // Resultado final
+  html = buildExportHtml(p);
+  sizeBytes = new Blob([html], {type:"text/html;charset=utf-8"}).size;
+
+  if(sizeBytes > EXPORT_MAX_BYTES){
+    return { payload: p, html:null, sizeBytes, optimized:changed };
+  }
+
+  return { payload: p, html, sizeBytes, optimized:changed };
+}
+
+function buildExportHtml(payloadOverride){
+  const payload = payloadOverride || buildPayloadFromState();
 
   const exportCss = `
 :root{--sena:#39A900;--ink:#0f172a;--muted:#64748b;--bg:#f6f8fb;--card:#fff;--b:rgba(15,23,42,.12);--ok:#16a34a;--bad:#ef4444;--warn:#f59e0b;--r:18px;--r2:26px;--sans:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial,Noto Sans,Apple Color Emoji,Segoe UI Emoji;--mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace}
@@ -1944,11 +2095,47 @@ el.cTimer.addEventListener("change",()=>{ applyModeLocks(); validate(); syncStat
 
 // preview/generate
 el.btnPreview.addEventListener("click",renderPreview);
-el.btnGen.addEventListener("click",()=>{
+el.btnGen.addEventListener("click", async ()=>{
   const v=validate();
   if(!v.ok) return;
-  const exportHtml = buildExportHtml();
-  downloadHtml("ImageQuizz"+formatTimestamp()+".html", exportHtml);
+
+  // bloquear mientras optimiza
+  el.btnGen.disabled = true;
+  el.btnPreview.disabled = true;
+
+  el.vWarn.style.display = "";
+  el.vWarn.textContent = "Generando exportable… (optimizando para ≤ "+EXPORT_MAX_MB+" MB)";
+  el.vErr.style.display = "none";
+  el.vOk.style.display = "none";
+
+  try{
+    const basePayload = buildPayloadFromState();
+    const r = await optimizePayloadForMaxSize(basePayload, (p)=>{
+      // feedback simple
+      const msg = "Optimizando… Paso "+p.step+"/"+p.stepTotal+" · Imagen "+p.item+"/"+p.itemTotal;
+      el.vWarn.style.display = "";
+      el.vWarn.textContent = msg;
+    });
+
+    if(!r || !r.html){
+      el.vErr.style.display = "";
+      el.vErr.textContent = "No se pudo bajar el exportable por debajo de "+EXPORT_MAX_MB+" MB. Reduce la cantidad de imágenes o divide el banco en varios HTML.";
+      return;
+    }
+
+    const mb = r.sizeBytes/(1024*1024);
+    el.vOk.style.display = "";
+    el.vOk.textContent = "✅ Export listo: "+(mb>=10?mb.toFixed(0):mb.toFixed(1))+" MB (≤ "+EXPORT_MAX_MB+" MB).";
+
+    downloadHtml("ImageQuizz"+formatTimestamp()+".html", r.html);
+  }catch(e){
+    el.vErr.style.display = "";
+    el.vErr.textContent = "Error al generar: "+(e?.message||String(e));
+  }finally{
+    // restaurar estado (según validación)
+    syncStats();
+    validate();
+  }
 });
 
 /* ============================================================
