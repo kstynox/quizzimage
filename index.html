@@ -589,8 +589,12 @@ const el = {
    UTILITIES
 ============================================================ */
 function escapeHtml(s){
-  return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  return String(s)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
 }
 function extLower(name){
   const i = String(name||"").lastIndexOf(".");
@@ -601,8 +605,8 @@ function stripExtension(name){
   return (i>0) ? String(name).slice(0,i) : String(name||"");
 }
 function isImageFile(file){
-  if(file?.type?.startsWith?.("image/")) return true;
-  const e = extLower(file?.name||"");
+  if(file && file.type && typeof file.type.startsWith === "function" && file.type.startsWith("image/")) return true;
+  const e = extLower((file && file.name) || "");
   return ["png","jpg","jpeg","webp","gif","bmp","svg","avif","ico","tif","tiff"].includes(e);
 }
 function formatBytes(b){
@@ -658,7 +662,7 @@ function supportsWebp(){
     return c.toDataURL("image/webp").startsWith("data:image/webp");
   }catch(e){ return false; }
 }
-const EXPORT_WEBP_OK = supportsWebp();
+const EXPORT_WEBP_OK = false; // Se desactiva WEBP en export para máxima compatibilidad en iPhone/iPad y equipos antiguos.
 
 function readFileAsDataUrlRaw(file){
   return new Promise((resolve,reject)=>{
@@ -689,8 +693,8 @@ async function optimizeImageForBank(file){
 
   if(!IMG_AUTO_OPT.enabled) return { dataUrl: rawDataUrl, outBytes: Number(file.size||0), optimized:false, resized:false };
 
-  const ext = extLower(file?.name||"");
-  const raster = ["jpg","jpeg","png","webp","bmp","avif","tif","tiff"].includes(ext) || (file?.type||"").startsWith("image/");
+  const ext = extLower((file && file.name) || "");
+  const raster = ["jpg","jpeg","png","webp","bmp","avif","tif","tiff"].includes(ext) || String((file && file.type) || "").startsWith("image/");
   const keepOriginal = ["svg","gif","ico"].includes(ext);
 
   if(keepOriginal || !raster) {
@@ -734,7 +738,7 @@ async function optimizeImageForBank(file){
   ctx.drawImage(img, 0, 0, tw, th);
 
   // Mantener formato cuando sea posible; JPEG/WEBP con compresión, PNG sin pérdida.
-  const srcType = (file?.type||"").toLowerCase();
+  const srcType = String((file && file.type) || "").toLowerCase();
   let outType = 'image/jpeg';
   let quality = IMG_AUTO_OPT.jpegQuality;
 
@@ -1161,7 +1165,7 @@ function renderPreview(){
 function buildPayloadFromState(){
   return {
     app:"Quizz Image",
-    version:"3.3.0",
+    version:"3.4.1-score-fix",
     createdAtIso:new Date().toISOString(),
     mode:state.mode,
     config: {
@@ -1209,7 +1213,8 @@ async function transcodeDataUrlForExport(dataUrl, maxDim, quality){
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(img, 0, 0, tw, th);
 
-  const outType = EXPORT_WEBP_OK ? "image/webp" : "image/jpeg";
+  const sourceIsPng = lower.startsWith("data:image/png");
+  const outType = sourceIsPng ? "image/png" : "image/jpeg";
   try{
     return canvas.toDataURL(outType, quality);
   }catch(_e){
@@ -1337,6 +1342,51 @@ h1{margin:0;font-weight:900;letter-spacing:-.02em;font-size:clamp(26px,3vw,40px)
 .scoreBox{border:1px solid var(--b);background:#fff;border-radius:22px;padding:12px;display:flex;flex-direction:column;gap:10px;justify-content:space-between}
 .scoreBox .row{justify-content:space-between}
 .scoreBox .row:last-child{justify-content:flex-end}
+.scoreMsg{display:none;margin-top:2px;border:1px solid rgba(57,169,0,.20);background:rgba(240,253,244,.75);border-radius:16px;padding:8px 10px;font-size:11px;font-weight:900;color:#166534;line-height:1.35}
+.scoreMsg.bad{border-color:rgba(239,68,68,.22);background:rgba(254,226,226,.75);color:#991b1b}
+.scoringBox{display:none!important}
+
+/* Resultado final tipo dashboard */
+.is-finished .mainImg,.is-finished .bottomBar,.is-finished #opts,.is-finished #timerWrap{display:none!important}
+.resultBox .sep{display:none}
+.resultBox>.row:first-of-type{align-items:flex-start!important;margin-bottom:14px}
+.resultBox>.row:first-of-type .mono{font-size:22px;font-weight:950;letter-spacing:.01em;color:#0f172a}
+#resultBadge{margin-top:8px;font-size:13px;padding:8px 14px}
+.resultDashboard{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:980px){.resultDashboard{grid-template-columns:.72fr 1.72fr;align-items:start}}
+.resultSide{display:flex;flex-direction:column;gap:14px}
+.heroScore{position:relative;min-height:178px;border:1.5px solid rgba(57,169,0,.85);border-radius:24px;background:linear-gradient(135deg,rgba(240,253,244,.96),#fff 48%,rgba(220,252,231,.74));overflow:hidden;box-shadow:0 18px 45px rgba(22,163,74,.08);display:grid;place-items:center;text-align:center;padding:22px 116px 24px}
+.heroScore:before{content:"";position:absolute;inset:auto -8% -42% -8%;height:105%;background:radial-gradient(80% 70% at 72% 45%,rgba(57,169,0,.10),transparent 60%),linear-gradient(12deg,rgba(57,169,0,.08),rgba(57,169,0,0) 52%);border-radius:50% 50% 0 0;pointer-events:none}
+.heroScore .label{position:relative;z-index:1;font-size:16px;font-weight:950;letter-spacing:.38em;text-transform:uppercase;color:var(--sena);margin-bottom:8px}
+.heroScore .value{position:relative;z-index:1;font-size:clamp(76px,10vw,136px);line-height:.9;font-weight:1000;letter-spacing:-.06em;color:#079326;text-shadow:0 7px 18px rgba(22,163,74,.22)}
+.heroScore .trophy{position:absolute;right:36px;top:50%;transform:translateY(-50%);width:78px;height:78px;border-radius:999px;display:grid;place-items:center;background:rgba(220,252,231,.9);font-size:38px;color:#15803d}
+.metricGrid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+@media(min-width:760px){.metricGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.metricCard{border:1px solid var(--b);background:#fff;border-radius:22px;padding:22px;display:flex;align-items:center;gap:18px;min-height:96px;box-shadow:0 12px 32px rgba(15,23,42,.045)}
+.metricIcon{width:58px;height:58px;border-radius:999px;background:rgba(220,252,231,.75);display:grid;place-items:center;font-size:28px;color:#16a34a;flex:0 0 auto}
+.metricCard .k{font-size:13px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#475569}
+.metricCard .v{margin-top:6px;font-size:28px;font-weight:1000;letter-spacing:-.03em;color:#0f172a}
+.chipRail{margin-top:14px;border:1px solid var(--b);background:#fff;border-radius:22px;padding:14px;display:flex;gap:12px;align-items:center;justify-content:space-around;flex-wrap:wrap;box-shadow:0 12px 32px rgba(15,23,42,.045)}
+.statChip{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--b);border-radius:999px;background:#fff;padding:8px 14px;font-size:13px;font-weight:950;white-space:nowrap}
+.statChip .ico{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:#f1f5f9;color:#334155}
+.statChip.ok{color:#166534}.statChip.ok .ico{background:rgba(220,252,231,.85);color:#16a34a}
+.statChip.bad{color:#991b1b}.statChip.bad .ico{background:rgba(254,226,226,.85);color:#dc2626}
+.statChip.warn{color:#92400e}.statChip.warn .ico{background:rgba(254,243,199,.9);color:#d97706}
+.resultSide .medalGrid{margin-top:0;grid-template-columns:1fr}
+.resultSide .medal{padding:18px 20px;font-size:16px}
+.reportTitle{font-size:16px;font-weight:950;color:#0f172a;margin-bottom:10px}
+@media(max-width:760px){.heroScore{padding:20px 22px}.heroScore .trophy{display:none}.heroScore .label{font-size:12px}.heroScore .value{font-size:82px}.resultBox>.row:first-of-type{gap:12px}.resultBox>.row:first-of-type>.row{width:100%;justify-content:flex-start}}
+.summaryGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+@media(min-width:760px){.summaryGrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.summaryItem{border:1px solid var(--b);background:#fff;border-radius:18px;padding:12px}
+.summaryItem .k{font-size:10px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#94a3b8}
+.summaryItem .v{margin-top:4px;font-size:18px;font-weight:950;color:#0f172a}
+.medalGrid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
+@media(min-width:760px){.medalGrid{grid-template-columns:1fr 1fr}}
+.medal{border:1px solid rgba(245,158,11,.28);background:rgba(254,243,199,.55);border-radius:18px;padding:10px 12px;font-weight:900;color:#78350f}
+.medal small{display:block;margin-top:3px;color:#92400e;font-weight:800;line-height:1.3}
+.scoringBox{display:none!important}
+.scoringBox b{color:#0f172a}
 
 .timerbar-wrap{margin-top:12px}
 .timerbar-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 8px}
@@ -1364,7 +1414,7 @@ h1{margin:0;font-weight:900;letter-spacing:-.02em;font-size:clamp(26px,3vw,40px)
 
 .resultBox{display:none;margin-top:12px}
 .report{margin-top:12px;border:1px solid var(--b);background:#fff;border-radius:22px;padding:12px;display:none}
-.mini{display:grid;grid-template-columns:64px 1fr 110px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(15,23,42,.08)}
+.mini{display:grid;grid-template-columns:64px 1fr 150px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(15,23,42,.08)}
 .mini:first-child{border-top:none}
 .thumb{width:64px;height:64px;border-radius:16px;border:1px solid var(--b);overflow:hidden;background:#fff}
 .thumb img{width:100%;height:100%;object-fit:cover}
@@ -1386,6 +1436,7 @@ label.small{font-size:11px;font-weight:900;letter-spacing:.22em;text-transform:u
 .printHero .st{margin-top:6px;font-size:22px;font-weight:900}
 .printHero .st.ok{color:var(--ok)}
 .printHero .st.bad{color:var(--bad)}
+.printHero .score{margin-top:8px;font-size:20px;font-weight:900;color:#0f172a}
 
 #confettiCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60;display:none}
 #confettiCanvas.active{display:block}
@@ -1411,7 +1462,7 @@ const $$=(q,r=document)=>Array.from(r.querySelectorAll(q));
 function pad2(n){return String(n).padStart(2,"0")}
 function fmtClock(sec){sec=Math.max(0,Math.floor(sec));const m=Math.floor(sec/60),s=sec%60;return pad2(m)+":"+pad2(s)}
 function nowStamp(){const d=new Date();return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate())+" "+pad2(d.getHours())+":"+pad2(d.getMinutes())}
-function escapeHtml(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}
 function rng(){return Math.random()}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function sample(a,n){const x=a.slice();shuffle(x);return x.slice(0,n)}
@@ -1424,10 +1475,22 @@ const app={
   ok:0, bad:0,
   answers:[],
   startedAt:Date.now(), endedAt:null,
+  questionShownAt:Date.now(),
+  questionStarted:[],
+  finished:false,
+  score:0, streak:0, maxStreak:0, finalBonus:0, medals:[],
   timer:{on:false,total:0,left:0,id:null},
   prefetch:new Map(),
   learner:{name:"", group:""},
   confetti:{running:false, raf:null, endAt:0, parts:[]}
+};
+
+const SCORE_RULES={
+  correct:100,
+  wrongPenalty:-20,
+  speed:[{max:5,pts:50},{max:10,pts:30},{max:20,pts:10}],
+  streak:{3:30,5:75,10:200},
+  finishTimeMultiplier:2
 };
 
 function buildOrder(){
@@ -1444,7 +1507,8 @@ function buildOrder(){
     if(app.cfg.shuffleImages) shuffle(app.order);
   }
   app.idx=0; app.ok=0; app.bad=0;
-  app.startedAt=Date.now(); app.endedAt=null;
+  app.startedAt=Date.now(); app.endedAt=null; app.questionShownAt=Date.now(); app.questionStarted=new Array(app.order.length).fill(0); app.finished=false;
+  app.score=0; app.streak=0; app.maxStreak=0; app.finalBonus=0; app.medals=[];
 }
 function current(){
   const id=app.order[app.idx];
@@ -1512,6 +1576,52 @@ function buildOptions(img){
   return opts;
 }
 
+function getSpeedBonus(sec){
+  if(sec<=5) return 50;
+  if(sec<=10) return 30;
+  if(sec<=20) return 10;
+  return 0;
+}
+function getStreakBonus(streak){
+  return SCORE_RULES.streak[String(streak)] || 0;
+}
+function syncScoreUI(){
+  const bs=$("#bScore"); if(bs) bs.textContent="Puntos: "+app.score;
+  const br=$("#bStreak"); if(br) br.textContent="Racha: "+app.streak+" · Máx: "+app.maxStreak;
+}
+function showScoreMsg(ans){
+  const box=$("#scoreMsg"); if(!box || !ans) return;
+  const parts=[];
+  if(ans.correct){
+    parts.push("+"+ans.basePoints+" base");
+    if(ans.speedBonus>0) parts.push("+"+ans.speedBonus+" rapidez ("+ans.responseSec+" s)");
+    if(ans.streakBonus>0) parts.push("+"+ans.streakBonus+" racha x"+ans.streakAfter);
+  }else{
+    parts.push(String(ans.penalty)+" por error");
+    parts.push("racha reiniciada");
+  }
+  box.className="scoreMsg "+(ans.correct?"":"bad");
+  box.textContent=(ans.correct?"Correcta: ":"Incorrecta: ")+parts.join(" · ")+" · Total: "+app.score;
+  box.style.display="block";
+}
+function calcMedals(summary){
+  const medals=[];
+  const fastCount=app.answers.filter(a=>a && a.correct && a.responseSec<=5).length;
+  if(fastCount>=1) medals.push({icon:"⚡",title:"Respuesta rápida",desc:"Correctas en 5 segundos o menos: "+fastCount+"."});
+  if(app.maxStreak>=5) medals.push({icon:"🔥",title:"Buena racha",desc:"Racha máxima de "+app.maxStreak+" respuestas correctas."});
+  if(summary.pct>=90) medals.push({icon:"🎯",title:"Precisión alta",desc:"Resultado igual o superior al 90%."});
+  if(summary.pass && app.cfg.timerEnabled && app.timer.total>0 && app.timer.left>=Math.floor(app.timer.total/2)) medals.push({icon:"⏱",title:"Contra reloj",desc:"Terminó usando la mitad o menos del tiempo disponible."});
+  if(summary.total>0 && app.ok===summary.total) medals.push({icon:"🏆",title:"Perfecto",desc:"Todas las respuestas fueron correctas."});
+  if(!medals.length) medals.push({icon:"📘",title:"En proceso",desc:"Sigue practicando para desbloquear medallas."});
+  return medals;
+}
+function renderMedals(medals){
+  return '<div class="medalGrid">'+medals.map(m=>'<div class="medal"><span>'+escapeHtml(m.icon+' '+m.title)+'</span><small>'+escapeHtml(m.desc)+'</small></div>').join("")+'</div>';
+}
+function scoringRulesHtml(){
+  return '';
+}
+
 function setTopMeta(){
   if(app.mode==="random"){
     // En modo aleatorio se ocultan datos superiores y no se solicita login
@@ -1541,6 +1651,9 @@ function render(){
   if(app.mode==="random"){
     $("#bOk").style.display="none";
     $("#bBad").style.display="none";
+    $("#bScore").style.display="none";
+    $("#bStreak").style.display="none";
+    const sm=$("#scoreMsg"); if(sm) sm.style.display="none";
     $("#btnFinish").style.display="none";
     $("#opts").style.display="none";
     $("#btnPrev").disabled=(app.idx===0);
@@ -1554,9 +1667,12 @@ function render(){
   $("#btnFinish").style.display="inline-flex";
   $("#bOk").style.display="inline-flex";
   $("#bBad").style.display="inline-flex";
+  $("#bScore").style.display="inline-flex";
+  $("#bStreak").style.display="inline-flex";
 
   $("#bOk").textContent="Aciertos: "+app.ok;
   $("#bBad").textContent="Errores: "+app.bad;
+  syncScoreUI();
 
   $("#btnPrev").disabled=app.cfg.sequentialOnly ? true : (app.idx===0);
   $("#btnNext").disabled=(app.idx>=app.order.length-1);
@@ -1566,6 +1682,11 @@ function render(){
   box.innerHTML="";
   const opts=buildOptions(img);
   const ans=app.answers[app.idx];
+  if(!ans){
+    if(!app.questionStarted[app.idx]) app.questionStarted[app.idx]=Date.now();
+    app.questionShownAt=app.questionStarted[app.idx];
+    const sm=$("#scoreMsg"); if(sm) sm.style.display="none";
+  }
 
   opts.forEach((o,i)=>{
     const b=document.createElement("button");
@@ -1584,15 +1705,43 @@ function render(){
 }
 
 function choose(selected, correct){
+  if(app.finished) return;
   const prev=app.answers[app.idx];
-  if(prev){
-    if(prev.correct) app.ok=Math.max(0,app.ok-1);
-    else app.bad=Math.max(0,app.bad-1);
-  }
+  if(prev) return;
 
   const ok=(selected===correct);
-  app.answers[app.idx]={selected, correct:ok};
-  if(ok) app.ok++; else app.bad++;
+  const responseSec=Math.max(0, Math.round((Date.now()-app.questionShownAt)/1000));
+  let basePoints=0, speedBonus=0, streakBonus=0, penalty=0;
+
+  if(ok){
+    app.ok++;
+    app.streak++;
+    app.maxStreak=Math.max(app.maxStreak, app.streak);
+    basePoints=SCORE_RULES.correct;
+    speedBonus=getSpeedBonus(responseSec);
+    streakBonus=getStreakBonus(app.streak);
+  }else{
+    app.bad++;
+    penalty=SCORE_RULES.wrongPenalty;
+    app.streak=0;
+  }
+
+  const delta=basePoints+speedBonus+streakBonus+penalty;
+  app.score=Math.max(0, app.score+delta);
+
+  const answer={
+    selected,
+    correct:ok,
+    responseSec,
+    basePoints,
+    speedBonus,
+    streakBonus,
+    penalty,
+    totalPoints:delta,
+    scoreAfter:app.score,
+    streakAfter:app.streak
+  };
+  app.answers[app.idx]=answer;
 
   $$("#opts .opt").forEach(b=>{
     b.disabled=true;
@@ -1601,9 +1750,11 @@ function choose(selected, correct){
 
   $("#bOk").textContent="Aciertos: "+app.ok;
   $("#bBad").textContent="Errores: "+app.bad;
+  syncScoreUI();
+  showScoreMsg(answer);
 
   if(app.cfg.sequentialOnly){
-    setTimeout(()=>{ if(app.idx<app.order.length-1) next(); else finish(false); },750);
+    setTimeout(()=>{ if(app.idx<app.order.length-1) next(); else finish(false); },900);
   }
 }
 
@@ -1621,11 +1772,16 @@ function buildReport(summary){
     const user=ans?ans.selected:"(sin respuesta)";
     const ok=ans?ans.correct:false;
     const badge='<span class="badge '+(ok?"ok":"bad")+'">'+(ok?"OK":"NO")+'</span>';
+    const pts=ans ? ans.totalPoints : 0;
+    const detail=ans
+      ? ('Tiempo: '+ans.responseSec+' s · Puntos: '+(pts>=0?'+':'')+pts+' · Acumulado: '+ans.scoreAfter)
+      : 'Sin respuesta · Puntos: 0';
 
     return '<div class="mini">'
       +'<div class="thumb"><img alt="Miniatura" src="'+img.dataUrl+'"></div>'
       +'<div><div class="mono">#'+(i+1)+' · Correcta: '+escapeHtml(img.name)+'</div>'
-      +'<div style="color:var(--muted);font-weight:800;font-size:12px;margin-top:4px">Respuesta: <b>'+escapeHtml(user)+'</b></div></div>'
+      +'<div style="color:var(--muted);font-weight:800;font-size:12px;margin-top:4px">Respuesta: <b>'+escapeHtml(user)+'</b></div>'
+      +'<div style="color:var(--muted);font-weight:800;font-size:12px;margin-top:4px">'+escapeHtml(detail)+'</div></div>'
       +'<div style="text-align:right">'+badge+'</div>'
       +'</div>';
   }).join("");
@@ -1639,26 +1795,25 @@ function buildReport(summary){
     +'<div style="margin-top:10px"><div class="mono">Observaciones</div><textarea placeholder="Escribe observaciones aquí..."></textarea></div>';
 
   $("#report").innerHTML =
-    '<div class="row" style="justify-content:space-between;align-items:flex-end">'
-      +'<div><div class="mono">Resultado</div><div style="font-weight:900;font-size:18px">'+(summary.pass?"APROBADO":"NO APROBADO")+' ('+summary.pct+'%)</div></div>'
-      +'<div class="row">'
-        +'<span class="badge ok">Aciertos: '+app.ok+'</span>'
-        +'<span class="badge bad">Errores: '+app.bad+'</span>'
-        +'<span class="badge">Total: '+summary.total+'</span>'
-        +'<span class="badge">Tiempo: '+summary.time+'</span>'
-      +'</div>'
+    '<div class="reportTitle">Detalle de revisión</div>'
+    +'<div class="row" style="margin-bottom:10px">'
+      +'<span class="badge ok">Aciertos: '+app.ok+'</span>'
+      +'<span class="badge bad">Errores: '+app.bad+'</span>'
+      +'<span class="badge">Total: '+summary.total+'</span>'
+      +'<span class="badge">Tiempo: '+summary.time+'</span>'
+      +'<span class="badge">Puntos: '+summary.score+'</span>'
+      +'<span class="badge warn">Racha máx.: '+summary.maxStreak+'</span>'
     +'</div>'
-    +'<hr class="sep"/>'
-    +'<div class="mono">Detalle</div>'
     +rows
     +sig;
 }
 
-function updatePrintHero(pct, pass){
+function updatePrintHero(pct, pass, score){
   $("#phPct").textContent=pct+"%";
   const st=$("#phSt");
   st.textContent=pass?"APROBADO":"NO APROBADO";
   st.className="st "+(pass?"ok":"bad");
+  const ps=$("#phScore"); if(ps) ps.textContent="Puntos: "+Math.max(0, Number(score||0));
 }
 
 function launchConfetti(durationMs){
@@ -1741,7 +1896,8 @@ function stopConfetti(){
 }
 
 function finish(timeout){
-  if(app.mode!=="quizz") return;
+  if(app.mode!=="quizz" || app.finished) return;
+  app.finished=true;
   stopTimer(); app.endedAt=Date.now();
 
   const total=app.order.length;
@@ -1753,18 +1909,57 @@ function finish(timeout){
     : Math.floor((app.endedAt-app.startedAt)/1000);
 
   const time=fmtClock(used);
+  // El bono final por tiempo solo se entrega si el aprendiz aprueba.
+  // Así una evaluación con todas las respuestas incorrectas no puede sumar puntos por terminar rápido.
+  app.finalBonus = (app.cfg.timerEnabled && !timeout && pass) ? Math.max(0, Math.floor(app.timer.left))*SCORE_RULES.finishTimeMultiplier : 0;
+  app.score = Math.max(0, app.score + app.finalBonus);
 
-  updatePrintHero(pct, pass);
+  const summary={total,pct,pass,time,timeout:!!timeout,score:app.score,finalBonus:app.finalBonus,maxStreak:app.maxStreak};
+  summary.medals=calcMedals(summary);
+  app.medals=summary.medals;
 
+  updatePrintHero(pct, pass, app.score);
+  syncScoreUI();
+
+  document.body.classList.add("is-finished");
   $("#resultBox").style.display="block";
   $("#btnFinish").style.display="none";
   $("#opts").style.display="none";
+  const sm=$("#scoreMsg"); if(sm) sm.style.display="none";
 
   $("#resultTitle").textContent=pass?"APROBADO":"NO APROBADO";
   $("#resultBadge").className="badge "+(pass?"ok":"bad");
-  $("#resultBadge").textContent=pass?"APROBADO (≥70%)":"NO APROBADO (<70%)";
+  $("#resultBadge").textContent=pass?"APROBADO (≥70%) · "+app.score+" puntos":"NO APROBADO (<70%) · "+app.score+" puntos";
 
-  buildReport({total,pct,pass,time,timeout:!!timeout});
+  $("#scoreSummary").innerHTML =
+    '<div class="resultDashboard">'
+      +'<div class="resultSide">'
+        +renderMedals(summary.medals)
+      +'</div>'
+      +'<div class="resultMain">'
+        +'<div class="heroScore">'
+          +'<div>'
+            +'<div class="label">Puntaje total</div>'
+            +'<div class="value">'+app.score+'</div>'
+          +'</div>'
+          +'<div class="trophy" aria-hidden="true">🏆</div>'
+        +'</div>'
+        +'<div class="metricGrid">'
+          +'<div class="metricCard"><div class="metricIcon">%</div><div><div class="k">Porcentaje</div><div class="v">'+pct+'%</div></div></div>'
+          +'<div class="metricCard"><div class="metricIcon">↗</div><div><div class="k">Racha máxima</div><div class="v">'+app.maxStreak+'</div></div></div>'
+          +'<div class="metricCard"><div class="metricIcon">◴</div><div><div class="k">Tiempo usado</div><div class="v">'+time+'</div></div></div>'
+        +'</div>'
+        +'<div class="chipRail">'
+          +'<span class="statChip ok"><span class="ico">✓</span>Aciertos: '+app.ok+'</span>'
+          +'<span class="statChip bad"><span class="ico">✕</span>Errores: '+app.bad+'</span>'
+          +'<span class="statChip"><span class="ico">☷</span>Total: '+summary.total+'</span>'
+          +'<span class="statChip"><span class="ico">◴</span>Tiempo: '+summary.time+'</span>'
+          +'<span class="statChip warn"><span class="ico">☆</span>Racha máx.: '+summary.maxStreak+'</span>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+
+  buildReport(summary);
   $("#report").style.display=app.cfg.showSolutionsEnd?"block":"none";
   $("#btnReview").style.display=app.cfg.showSolutionsEnd?"inline-flex":"none";
   $("#btnReview").textContent=app.cfg.showSolutionsEnd?"Ocultar revisión":"Mostrar revisión";
@@ -1774,13 +1969,16 @@ function finish(timeout){
     setTimeout(stopConfetti, 5200);
   }
 
-  window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
+  $("#resultBox").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
 function restart(){
   stopConfetti();
+  document.body.classList.remove("is-finished");
   $("#resultBox").style.display="none";
   $("#report").style.display="none";
+  const ss=$("#scoreSummary"); if(ss) ss.innerHTML="";
+  const sm=$("#scoreMsg"); if(sm) sm.style.display="none";
   $("#btnReview").textContent="Mostrar revisión";
   $("#btnFinish").style.display=(app.mode==="quizz")?"inline-flex":"none";
   $("#opts").style.display=(app.mode==="quizz")?"grid":"none";
@@ -1856,7 +2054,7 @@ function init(){
   setTimerBarVisible(app.mode==="quizz" && app.cfg.timerEnabled);
 
   // print hero base
-  updatePrintHero(0,false);
+  updatePrintHero(0,false,0);
 
   if(app.mode==="random"){
     // Sin login y sin metadatos en modo aleatorio
@@ -1898,6 +2096,11 @@ init();
         +'<span class="badge bad" id="bBad">Errores: 0</span>'
       +'</div>'
       +'<div class="row">'
+        +'<span class="badge" id="bScore">Puntos: 0</span>'
+        +'<span class="badge warn" id="bStreak">Racha: 0 · Máx: 0</span>'
+      +'</div>'
+      +'<div class="scoreMsg" id="scoreMsg"></div>'
+      +'<div class="row">'
         +'<span class="badge" id="bIdx">0 / 0</span>'
         +'<button class="btn primary no-print" id="btnNextTop" type="button">Siguiente</button>'
       +'</div>'
@@ -1915,6 +2118,7 @@ init();
   +'<div class="printHero" id="printHero">'
     +'<div class="pct" id="phPct">0%</div>'
     +'<div class="st bad" id="phSt">NO APROBADO</div>'
+    +'<div class="score" id="phScore">Puntos: 0</div>'
   +'</div>'
 
   +'<div class="mainImg">'
@@ -1946,6 +2150,7 @@ init();
         +'<button class="btn primary" id="btnRestart" type="button">Reiniciar</button>'
       +'</div>'
     +'</div>'
+    +'<div id="scoreSummary"></div>'
     +'<div class="report" id="report"></div>'
   +'</div>'
 
@@ -1973,14 +2178,68 @@ init();
   return exportHtml;
 }
 
-function downloadHtml(filename, content){
+function isAppleMobile(){
+  const ua = String(navigator.userAgent || navigator.vendor || "");
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+async function downloadHtml(filename, content){
   const blob = new Blob([content], {type:"text/html;charset=utf-8"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 600);
+  let file = null;
+  try{
+    file = new File([blob], filename, {type:"text/html;charset=utf-8"});
+  }catch(_e){}
+
+  if(navigator.share && file && navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({
+        title: filename,
+        text: "Exportable HTML",
+        files: [file]
+      });
+      return { method:"share" };
+    }catch(err){
+      if(err && err.name === "AbortError"){
+        return { method:"cancel" };
+      }
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  const canDirectDownload = ("download" in HTMLAnchorElement.prototype) && !isAppleMobile();
+
+  if(canDirectDownload){
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{
+      URL.revokeObjectURL(objectUrl);
+      a.remove();
+    }, 1200);
+    return { method:"download" };
+  }
+
+  const win = window.open(objectUrl, "_blank");
+  if(!win){
+    const reader = new FileReader();
+    await new Promise((resolve,reject)=>{
+      reader.onload = ()=>{
+        try{
+          window.location.href = reader.result;
+          resolve();
+        }catch(err){
+          reject(err);
+        }
+      };
+      reader.onerror = ()=>reject(new Error("No se pudo abrir el exportable"));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  setTimeout(()=>URL.revokeObjectURL(objectUrl), 4000);
+  return { method:"open" };
 }
 
 /* ============================================================
@@ -2031,8 +2290,8 @@ el.inpFiles.addEventListener("change",e=>addFiles(e.target.files));
   dz.addEventListener("dragleave",()=>dz.classList.remove("drag"));
   dz.addEventListener("drop",e=>{
     dz.classList.remove("drag");
-    const files=e.dataTransfer?.files;
-    if(files?.length) addFiles(files);
+    const files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null;
+    if(files && files.length) addFiles(files);
   });
   dz.addEventListener("click",()=>el.inpFiles.click());
   dz.addEventListener("keydown",e=>{
@@ -2127,10 +2386,18 @@ el.btnGen.addEventListener("click", async ()=>{
     el.vOk.style.display = "";
     el.vOk.textContent = "✅ Export listo: "+(mb>=10?mb.toFixed(0):mb.toFixed(1))+" MB (≤ "+EXPORT_MAX_MB+" MB).";
 
-    downloadHtml("ImageQuizz"+formatTimestamp()+".html", r.html);
+    const dl = await downloadHtml("ImageQuizz"+formatTimestamp()+".html", r.html);
+    if(dl && dl.method === "cancel"){
+      el.vWarn.style.display = "";
+      el.vWarn.textContent = "Export generado, pero se canceló el guardado/compartido.";
+    }
+    if(dl && dl.method === "open"){
+      el.vWarn.style.display = "";
+      el.vWarn.textContent = "En iPhone/iPad el archivo se abrió en otra pestaña. Usa Compartir > Guardar en Archivos para conservar el HTML.";
+    }
   }catch(e){
     el.vErr.style.display = "";
-    el.vErr.textContent = "Error al generar: "+(e?.message||String(e));
+    el.vErr.textContent = "Error al generar: "+((e && e.message) || String(e));
   }finally{
     // restaurar estado (según validación)
     syncStats();
