@@ -139,6 +139,13 @@ tbody tr:nth-child(even) td{background:#f8fafc}
   cursor:pointer;color:#64748b
 }
 .seg button[aria-pressed="true"]{color:var(--ink);border-color:rgba(15,23,42,.18);background:rgba(220,252,231,.85)}
+.seg button{transition:transform .16s ease,box-shadow .16s ease,background .16s ease;color:#fff;border-color:transparent}
+.seg button:hover{transform:translateY(-1px)}
+.seg button[data-mode="quizz"]{background:#2563eb}
+.seg button[data-mode="random"]{background:#7c3aed}
+.seg button[data-mode="question"]{background:#f59e0b;color:#422006}
+.seg button[aria-pressed="true"]{box-shadow:0 0 0 4px rgba(15,23,42,.12),0 8px 20px rgba(15,23,42,.16);filter:brightness(1.04);color:#fff;border-color:rgba(255,255,255,.65)}
+.seg button[data-mode="question"][aria-pressed="true"]{color:#422006}
 
 .switch{
   margin-top:10px;border:1px solid var(--b);border-radius:var(--r2);
@@ -171,6 +178,46 @@ tbody tr:nth-child(even) td{background:#f8fafc}
 @media(min-width:860px){.optGrid{grid-template-columns:1fr 1fr}}
 .opt{width:100%;text-align:left;padding:10px 12px;border-radius:var(--r);border:1px solid var(--b);background:#fff;font-weight:900;cursor:pointer}
 .opt:hover{background:#f8fafc}
+.opt.optColor0{background:#e21b3c;color:#fff;border-color:#b91531}
+.opt.optColor1{background:#1368ce;color:#fff;border-color:#0f55aa}
+.opt.optColor2{background:#d89e00;color:#fff;border-color:#a97800}
+.opt.optColor3{background:#26890c;color:#fff;border-color:#1d6909}
+.opt.optColor4{background:#7b2cbf;color:#fff;border-color:#5f2095}
+.opt.optColor5{background:#e76f00;color:#fff;border-color:#b85700}
+.opt.optColor0:hover,.opt.optColor1:hover,.opt.optColor2:hover,.opt.optColor3:hover,.opt.optColor4:hover,.opt.optColor5:hover{filter:brightness(.93)}
+.opt.selected{transform:scale(.985);box-shadow:0 0 0 4px rgba(15,23,42,.18)!important}
+.opt.ok{background:#16a34a!important;color:#fff!important;border-color:#15803d!important}
+.opt.bad{background:#ef4444!important;color:#fff!important;border-color:#b91c1c!important}
+.opt.optColor0{background:#e21b3c;color:#fff;border-color:#b91531}
+.opt.optColor1{background:#1368ce;color:#fff;border-color:#0f55aa}
+.opt.optColor2{background:#d89e00;color:#fff;border-color:#a97800}
+.opt.optColor3{background:#26890c;color:#fff;border-color:#1d6909}
+.opt.optColor4{background:#7b2cbf;color:#fff;border-color:#5f2095}
+.opt.optColor5{background:#e76f00;color:#fff;border-color:#b85700}
+.opt.optColor0:hover,.opt.optColor1:hover,.opt.optColor2:hover,.opt.optColor3:hover,.opt.optColor4:hover,.opt.optColor5:hover{filter:brightness(.94)}
+.grid.kahootMode #configCard{grid-column:1/-1}
+.kEditor{margin-top:14px;border:1px solid var(--b);border-radius:26px;padding:20px;background:#f8fafc;width:100%}
+.kNav{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.kEditorGrid{display:grid;grid-template-columns:minmax(360px,.9fr) minmax(420px,1.1fr);gap:22px;align-items:stretch}
+.kImagePanel,.kFormPanel{border:1px solid var(--b);border-radius:22px;background:#fff;padding:16px}
+.kImagePanel{display:flex;flex-direction:column}
+.kImagePanel .pimg{flex:1;min-height:520px;margin-top:0!important}
+.kImagePanel .pimg img{max-width:98%;max-height:500px;object-fit:contain}
+.kFormPanel{display:flex;flex-direction:column}
+.kOptionRow{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:center;margin-top:12px}
+.kOptionRow input[type="checkbox"]{width:24px;height:24px;accent-color:var(--sena)}
+.kOptionRow .input{min-height:48px;font-size:15px}
+.kQuestion{min-height:130px;resize:vertical;font-size:17px;line-height:1.45}
+.kEditor .actions{margin-top:18px}
+@media(max-width:980px){
+  .kEditorGrid{grid-template-columns:1fr}
+  .kImagePanel .pimg{min-height:360px}
+}
+@media(max-width:600px){
+  .kEditor{padding:12px}
+  .kImagePanel,.kFormPanel{padding:12px}
+  .kImagePanel .pimg{min-height:280px}
+}
 
 /* Mobile collapsible */
 @media(max-width:820px){
@@ -243,7 +290,7 @@ tbody tr:nth-child(even) td{background:#f8fafc}
     <div class="sub">GENERADOR OFFLINE · EXPORTA 1 HTML</div>
   </header>
 
-  <div class="grid">
+  <div class="grid" id="mainGrid">
 
     <!-- Banco -->
     <section class="card" id="bankCard" data-collapsible="1" data-open="1">
@@ -351,8 +398,9 @@ tbody tr:nth-child(even) td{background:#f8fafc}
       <div class="cardBody">
         <div class="row" style="justify-content:center;margin-top:10px">
           <div class="seg" role="tablist" aria-label="Modo">
-            <button type="button" id="mQuizz" aria-pressed="true">Quizz</button>
-            <button type="button" id="mRand" aria-pressed="false">Aleatorio</button>
+            <button type="button" id="mQuizz" data-mode="quizz" aria-pressed="true"><span aria-hidden="true">🎯</span> Quizz</button>
+            <button type="button" id="mRand" data-mode="random" aria-pressed="false"><span aria-hidden="true">🔀</span> Aleatorio</button>
+            <button type="button" id="mPregunta" data-mode="question" aria-pressed="false"><span aria-hidden="true">❓</span> Pregunta</button>
           </div>
         </div>
 
@@ -449,6 +497,37 @@ tbody tr:nth-child(even) td{background:#f8fafc}
           <div class="msg">Modo Aleatorio: solo imagen + navegación.</div>
         </div>
 
+        <div id="kahootCfg" style="display:none">
+          <div class="msg">Modo Pregunta: cada imagen puede tener una pregunta, entre 2 y 6 opciones y una o varias respuestas válidas.</div>
+          <div class="kEditor" id="kEditor">
+            <div class="kNav">
+              <button class="btn" id="kPrev" type="button">Anterior</button>
+              <span class="badge" id="kCounter">Sin imágenes</span>
+              <button class="btn" id="kNext" type="button">Siguiente</button>
+            </div>
+            <div class="kEditorGrid">
+              <div class="kImagePanel">
+                <label class="small">Imagen de la pregunta</label>
+                <div id="kImageWrap" class="pimg"><span class="hint">Carga imágenes para editar.</span></div>
+              </div>
+              <div class="kFormPanel">
+                <label class="small" for="kQuestion">Pregunta</label>
+                <textarea class="input kQuestion" id="kQuestion" placeholder="Escribe la pregunta para esta imagen..."></textarea>
+                <div class="row" style="justify-content:space-between;margin-top:12px">
+                  <label class="small" style="margin:0" for="kOptCount">Cantidad de opciones</label>
+                  <select class="select" id="kOptCount" style="width:150px"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select>
+                </div>
+                <div id="kOptions"></div>
+                <div class="actions">
+                  <button class="btn" id="kCopyNext" type="button">Copiar a la siguiente</button>
+                  <button class="btn warnBtn" id="kCopyAll" type="button">Copiar a todas</button>
+                </div>
+                <div class="hint">Marca una o varias casillas para definir las respuestas correctas.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="msg bad" id="vErr" style="display:none"></div>
         <div class="msg warn" id="vWarn" style="display:none"></div>
         <div class="msg ok" id="vOk" style="display:none"></div>
@@ -507,9 +586,9 @@ tbody tr:nth-child(even) td{background:#f8fafc}
    STATE
 ============================================================ */
 const state = {
-  mode: "quizz", // "quizz" | "random"
+  mode: "quizz", // "quizz" | "random" | "kahoot"
   dbImages: [],  // {id, name, dataUrl, sizeBytes, ext, valid, selected}
-  ui: { search:"", sort:"name_asc", onlyValid:true },
+  ui: { search:"", sort:"name_asc", onlyValid:true, kahootIndex:0 },
   config: {
     title:"", instructor:"", topic:"",
     itemsCount:10,
@@ -557,6 +636,7 @@ const el = {
   // config
   mQuizz: $("#mQuizz"),
   mRand: $("#mRand"),
+  mPregunta: $("#mPregunta"),
   cTitle: $("#cTitle"),
   cInstr: $("#cInstr"),
   cTopic: $("#cTopic"),
@@ -568,6 +648,9 @@ const el = {
   cShuffle: $("#cShuffle"),
   quizzCfg: $("#quizzCfg"),
   randCfg: $("#randCfg"),
+  kahootCfg: $("#kahootCfg"),
+  kPrev: $("#kPrev"), kNext: $("#kNext"), kCounter: $("#kCounter"), kImageWrap: $("#kImageWrap"),
+  kQuestion: $("#kQuestion"), kOptCount: $("#kOptCount"), kOptions: $("#kOptions"), kCopyNext: $("#kCopyNext"), kCopyAll: $("#kCopyAll"),
   cShuffleOpt: $("#cShuffleOpt"),
   cSeq: $("#cSeq"),
   cTimer: $("#cTimer"),
@@ -921,21 +1004,68 @@ function renderList(){
 }
 
 /* ============================================================
+   PREGUNTA EDITOR
+============================================================ */
+function ensurePreguntaData(it){
+  if(!it) return;
+  if(!it.kahoot) it.kahoot={question:"", options:["","","",""], correct:[0]};
+  if(!Array.isArray(it.kahoot.options)) it.kahoot.options=["","","",""];
+  while(it.kahoot.options.length<2) it.kahoot.options.push("");
+  if(!Array.isArray(it.kahoot.correct)) it.kahoot.correct=[0];
+}
+function kahootImages(){ return state.dbImages.filter(x=>x.valid); }
+function currentPreguntaImage(){
+  const a=kahootImages();
+  state.ui.kahootIndex=Math.max(0,Math.min(state.ui.kahootIndex,Math.max(0,a.length-1)));
+  return a[state.ui.kahootIndex]||null;
+}
+function savePreguntaEditor(){
+  const it=currentPreguntaImage(); if(!it) return;
+  ensurePreguntaData(it);
+  it.kahoot.question=el.kQuestion.value.trim();
+  const rows=$$(".kOptionRow",el.kOptions);
+  it.kahoot.options=rows.map(r=>$("input[type=text]",r).value.trim());
+  it.kahoot.correct=rows.map((r,i)=>$("input[type=checkbox]",r).checked?i:-1).filter(i=>i>=0);
+}
+function renderPreguntaEditor(){
+  const a=kahootImages(), it=currentPreguntaImage();
+  el.kCounter.textContent=a.length?("Imagen "+(state.ui.kahootIndex+1)+" / "+a.length):"Sin imágenes";
+  el.kPrev.disabled=!it||state.ui.kahootIndex<=0;
+  el.kNext.disabled=!it||state.ui.kahootIndex>=a.length-1;
+  el.kCopyNext.disabled=!it||state.ui.kahootIndex>=a.length-1;
+  el.kCopyAll.disabled=!it||a.length<2;
+  if(!it){ el.kImageWrap.innerHTML='<span class="hint">Carga imágenes para editar.</span>'; el.kQuestion.value=""; el.kOptions.innerHTML=""; return; }
+  ensurePreguntaData(it);
+  el.kImageWrap.innerHTML='<img alt="Imagen de la pregunta" src="'+it.dataUrl+'">';
+  el.kQuestion.value=it.kahoot.question||"";
+  let count=Math.max(2,Math.min(6,it.kahoot.options.length||4));
+  el.kOptCount.value=String(count);
+  el.kOptions.innerHTML=Array.from({length:count},(_,i)=>'<div class="kOptionRow"><input type="checkbox" '+(it.kahoot.correct.includes(i)?'checked':'')+' aria-label="Correcta '+(i+1)+'"><input class="input" type="text" value="'+escapeHtml(it.kahoot.options[i]||'')+'" placeholder="Opción '+(i+1)+'"></div>').join("");
+}
+function copyPreguntaData(targets){
+  savePreguntaEditor(); const src=currentPreguntaImage(); if(!src) return;
+  ensurePreguntaData(src);
+  targets.forEach(t=>{ if(t&&t.id!==src.id) t.kahoot=JSON.parse(JSON.stringify(src.kahoot)); });
+  renderPreguntaEditor(); validate();
+}
+
+/* ============================================================
    MODE LOCKS
 ============================================================ */
 function applyModeLocks(){
-  if(state.mode==="quizz"){
-    el.quizzCfg.style.display="";
-    el.randCfg.style.display="none";
-    el.cOpt.disabled=false;
+  const mainGrid = document.getElementById("mainGrid");
+  if(mainGrid) mainGrid.classList.toggle("kahootMode", state.mode==="kahoot");
+  el.quizzCfg.style.display=state.mode==="quizz"?"":"none";
+  el.randCfg.style.display=state.mode==="random"?"":"none";
+  el.kahootCfg.style.display=state.mode==="kahoot"?"":"none";
+  if(state.mode!=="random"){
+    el.cOpt.disabled=state.mode==="kahoot";
     el.cShuffleOpt.disabled=false;
     el.cTimer.disabled=false;
     el.cTmin.disabled=!el.cTimer.checked;
     el.cSeq.disabled=false;
     el.cShowSol.disabled=false;
   }else{
-    el.quizzCfg.style.display="none";
-    el.randCfg.style.display="";
     el.cOpt.disabled=true;
     el.cShuffleOpt.disabled=true;
     el.cTimer.disabled=true;
@@ -992,6 +1122,17 @@ function validate(){
       issues.push("Para "+state.config.optionsCount+" opciones necesitas al menos "+state.config.optionsCount+" imágenes válidas.");
     }
     if(state.config.timerEnabled && !(state.config.timeLimitMin>=1)) issues.push("Tiempo límite inválido.");
+  }
+  if(state.mode==="kahoot"){
+    savePreguntaEditor();
+    const selected=state.dbImages.filter(x=>x.valid).slice(0,state.config.itemsCount);
+    selected.forEach((it,i)=>{
+      ensurePreguntaData(it);
+      const opts=it.kahoot.options.map(x=>String(x||"").trim());
+      if(!String(it.kahoot.question||"").trim()) issues.push("Imagen "+(i+1)+": falta la pregunta.");
+      if(opts.length<2 || opts.some(x=>!x)) issues.push("Imagen "+(i+1)+": completa todas las opciones.");
+      if(!it.kahoot.correct.length) issues.push("Imagen "+(i+1)+": marca al menos una respuesta correcta.");
+    });
   }
 
   const estMb=estimateExportBytes()/(1024*1024);
@@ -1054,7 +1195,7 @@ async function addFiles(fileList){
       base = state.config.normalizeOnLoad ? normalizeName(base) : base;
       const name = uniqName(base, used);
 
-      added.push({ id:newId(), name, dataUrl, sizeBytes:Number(opt.outBytes||f.size||0), ext:extLower(f.name||""), valid:true, selected:false });
+      added.push({ id:newId(), name, dataUrl, sizeBytes:Number(opt.outBytes||f.size||0), ext:extLower(f.name||""), valid:true, selected:false, kahoot:{question:"",options:["","","",""],correct:[0]} });
     }catch(e){
       added.push({ id:newId(), name:stripExtension(f.name||"archivo"), dataUrl:null, sizeBytes:Number(f.size||0), ext:extLower(f.name||""), valid:false, selected:false });
     }
@@ -1092,8 +1233,8 @@ function renderPreview(){
   const pool = state.dbImages.filter(x=>x.valid);
   const pick = pool[Math.floor(Math.random()*pool.length)];
 
-  el.pvMode.textContent = (state.mode==="quizz" ? "QUIZZ" : "ALEATORIO");
-  el.pvInfo.textContent = "DB "+pool.length+" · Ítems "+Math.min(state.config.itemsCount,pool.length) + (state.mode==="quizz" ? (" · Opt "+state.config.optionsCount) : "");
+  el.pvMode.textContent = (state.mode==="quizz" ? "QUIZZ" : state.mode==="kahoot" ? "PREGUNTA" : "ALEATORIO");
+  el.pvInfo.textContent = "DB "+pool.length+" · Ítems "+Math.min(state.config.itemsCount,pool.length) + (state.mode==="quizz" ? (" · Opt "+state.config.optionsCount) : state.mode==="kahoot" ? " · Personalizado" : "");
 
   const topMeta =
     '<div class="msg" style="margin:0">'
@@ -1127,13 +1268,18 @@ function renderPreview(){
     return;
   }
 
-  const opts = buildOptions(pick, pool, state.config.optionsCount);
-  const buttons = opts.map((o,i)=>'<button class="opt" type="button" aria-label="Opción '+(i+1)+'">'+escapeHtml(o)+'</button>').join("");
+  let previewQuestion="";
+  let opts=[];
+  if(state.mode==="kahoot"){
+    ensurePreguntaData(pick); previewQuestion=pick.kahoot.question||"Pregunta sin definir"; opts=pick.kahoot.options.slice();
+  }else opts=buildOptions(pick, pool, state.config.optionsCount);
+  const buttons = opts.map((o,i)=>'<button class="opt" type="button" aria-label="Opción '+(i+1)+'">'+escapeHtml(o||("Opción "+(i+1)))+'</button>').join("");
 
   const right =
     '<div class="fadeIn">'
       +topMeta
       +timerBar
+      +(state.mode==="kahoot"?'<div class="msg" style="font-size:16px">'+escapeHtml(previewQuestion)+'</div>':'')
       +'<div class="row" style="justify-content:space-between;margin-top:10px">'
         +'<span class="badge ok">Aciertos: 0</span>'
         +'<span class="badge bad">Errores: 0</span>'
@@ -1165,7 +1311,7 @@ function renderPreview(){
 function buildPayloadFromState(){
   return {
     app:"Quizz Image",
-    version:"3.4.1-score-fix",
+    version:"3.5.0-kahoot",
     createdAtIso:new Date().toISOString(),
     mode:state.mode,
     config: {
@@ -1183,7 +1329,7 @@ function buildPayloadFromState(){
     },
     dbImages: state.dbImages
       .filter(x=>x.valid)
-      .map(x=>({id:x.id, name:x.name, dataUrl:x.dataUrl, ext:x.ext||"", sizeBytes:x.sizeBytes||0}))
+      .map(x=>({id:x.id, name:x.name, dataUrl:x.dataUrl, ext:x.ext||"", sizeBytes:x.sizeBytes||0, kahoot:x.kahoot||null}))
   };
 }
 
@@ -1404,7 +1550,24 @@ h1{margin:0;font-weight:900;letter-spacing:-.02em;font-size:clamp(26px,3vw,40px)
 .opts{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
 @media(min-width:720px){.opts{grid-template-columns:1fr 1fr}}
 .opt{width:100%;text-align:left;padding:12px 12px;border-radius:18px;border:1px solid var(--b);background:#fff;font-weight:900;cursor:pointer}
-.opt:hover{background:#f8fafc}.opt:disabled{opacity:.95;cursor:not-allowed}
+.opt:hover{background:#f8fafc}
+.opt.optColor0{background:#e21b3c;color:#fff;border-color:#b91531}
+.opt.optColor1{background:#1368ce;color:#fff;border-color:#0f55aa}
+.opt.optColor2{background:#d89e00;color:#fff;border-color:#a97800}
+.opt.optColor3{background:#26890c;color:#fff;border-color:#1d6909}
+.opt.optColor4{background:#7b2cbf;color:#fff;border-color:#5f2095}
+.opt.optColor5{background:#e76f00;color:#fff;border-color:#b85700}
+.opt.optColor0:hover,.opt.optColor1:hover,.opt.optColor2:hover,.opt.optColor3:hover,.opt.optColor4:hover,.opt.optColor5:hover{filter:brightness(.93)}
+.opt.selected{transform:scale(.985);box-shadow:0 0 0 4px rgba(15,23,42,.18)!important}
+.opt.ok{background:#16a34a!important;color:#fff!important;border-color:#15803d!important}
+.opt.bad{background:#ef4444!important;color:#fff!important;border-color:#b91c1c!important}
+.opt.optColor0{background:#e21b3c;color:#fff;border-color:#b91531}
+.opt.optColor1{background:#1368ce;color:#fff;border-color:#0f55aa}
+.opt.optColor2{background:#d89e00;color:#fff;border-color:#a97800}
+.opt.optColor3{background:#26890c;color:#fff;border-color:#1d6909}
+.opt.optColor4{background:#7b2cbf;color:#fff;border-color:#5f2095}
+.opt.optColor5{background:#e76f00;color:#fff;border-color:#b85700}
+.opt.optColor0:hover,.opt.optColor1:hover,.opt.optColor2:hover,.opt.optColor3:hover,.opt.optColor4:hover,.opt.optColor5:hover{filter:brightness(.94)}.opt:disabled{opacity:.95;cursor:not-allowed}
 .opt.ok{border-color:rgba(22,163,74,.35);background:rgba(220,252,231,.85);color:#166534}
 .opt.bad{border-color:rgba(239,68,68,.28);background:rgba(254,226,226,.85);color:#991b1b}
 
@@ -1495,7 +1658,7 @@ const SCORE_RULES={
 
 function buildOrder(){
   const total=app.db.length;
-  if(app.mode==="quizz"){
+  if(app.mode!=="random"){
     let n=Math.max(1,Math.floor(Number(app.cfg.itemsCount||1)));
     if(n>total) n=total;
     let pool=app.db.map(x=>x.id);
@@ -1546,7 +1709,7 @@ function setTimerBar(secLeft, secTotal){
 }
 
 function startTimer(){
-  if(!(app.mode==="quizz" && app.cfg.timerEnabled)) {
+  if(!(app.mode!=="random" && app.cfg.timerEnabled)) {
     setTimerBarVisible(false);
     return;
   }
@@ -1568,12 +1731,17 @@ function startTimer(){
 function stopTimer(){ if(app.timer.id){ clearInterval(app.timer.id); app.timer.id=null; } }
 
 function buildOptions(img){
+  if(app.mode==="kahoot" && img.kahoot){
+    let opts=img.kahoot.options.map((text,i)=>({text:text,correct:img.kahoot.correct.includes(i)}));
+    if(app.cfg.shuffleOptions) shuffle(opts);
+    return opts;
+  }
   const correct=img.name;
   let others=app.db.filter(x=>x.id!==img.id).map(x=>x.name);
   const picks=sample(others, Math.min(app.cfg.optionsCount-1, others.length));
   let opts=[correct].concat(picks);
   if(app.cfg.shuffleOptions) shuffle(opts);
-  return opts;
+  return opts.map(text=>({text,correct:text===correct}));
 }
 
 function getSpeedBonus(sec){
@@ -1680,6 +1848,7 @@ function render(){
 
   const box=$("#opts");
   box.innerHTML="";
+  const qel=$("#questionText"); if(qel){ qel.style.display=app.mode==="kahoot"?"block":"none"; qel.textContent=(img.kahoot&&img.kahoot.question)||""; }
   const opts=buildOptions(img);
   const ans=app.answers[app.idx];
   if(!ans){
@@ -1689,27 +1858,18 @@ function render(){
   }
 
   opts.forEach((o,i)=>{
-    const b=document.createElement("button");
-    b.type="button";
-    b.className="opt";
-    b.textContent=o;
-
-    if(ans){
-      b.disabled=true;
-      if(o===ans.selected) b.classList.add(ans.correct?"ok":"bad");
-    }
-
-    b.addEventListener("click",()=>choose(o,img.name));
-    box.appendChild(b);
+    const b=document.createElement("button"); b.type="button"; b.className="opt optColor"+(i%6); b.textContent=o.text; b.dataset.correct=o.correct?"1":"0";
+    if(ans){ b.disabled=true; if((ans.selected||[]).includes(o.text)) b.classList.add(o.correct?"ok":"bad"); }
+    b.addEventListener("click",()=>chooseOption(b,img)); box.appendChild(b);
   });
 }
 
-function choose(selected, correct){
+function scoreAnswer(selected, isCorrect){
   if(app.finished) return;
   const prev=app.answers[app.idx];
   if(prev) return;
 
-  const ok=(selected===correct);
+  const ok=!!isCorrect;
   const responseSec=Math.max(0, Math.round((Date.now()-app.questionShownAt)/1000));
   let basePoints=0, speedBonus=0, streakBonus=0, penalty=0;
 
@@ -1730,7 +1890,7 @@ function choose(selected, correct){
   app.score=Math.max(0, app.score+delta);
 
   const answer={
-    selected,
+    selected:Array.isArray(selected)?selected:[selected],
     correct:ok,
     responseSec,
     basePoints,
@@ -1745,7 +1905,7 @@ function choose(selected, correct){
 
   $$("#opts .opt").forEach(b=>{
     b.disabled=true;
-    if(b.textContent.trim()===selected) b.classList.add(ok?"ok":"bad");
+    if(answer.selected.includes(b.textContent.trim())) b.classList.add(b.dataset.correct==="1"?"ok":"bad");
   });
 
   $("#bOk").textContent="Aciertos: "+app.ok;
@@ -1753,11 +1913,14 @@ function choose(selected, correct){
   syncScoreUI();
   showScoreMsg(answer);
 
-  if(app.cfg.sequentialOnly){
-    setTimeout(()=>{ if(app.idx<app.order.length-1) next(); else finish(false); },900);
-  }
+  setTimeout(()=>{ if(app.idx<app.order.length-1) next(); else finish(false); },900);
 }
 
+function chooseOption(btn,img){
+  if(app.finished||app.answers[app.idx]) return;
+  btn.classList.add("selected");
+  scoreAnswer(btn.textContent.trim(),btn.dataset.correct==="1");
+}
 function next(){
   if(app.idx<app.order.length-1){ app.idx++; render(); }
   else if(app.mode==="quizz") finish(false);
@@ -1765,11 +1928,11 @@ function next(){
 function prev(){ if(app.idx>0){ app.idx--; render(); } }
 
 function buildReport(summary){
-  if(app.mode!=="quizz") return;
+  if(app.mode==="random") return;
   const rows=app.order.map((id,i)=>{
     const img=app.db.find(x=>x.id===id);
     const ans=app.answers[i];
-    const user=ans?ans.selected:"(sin respuesta)";
+    const user=ans?(Array.isArray(ans.selected)?ans.selected.join(" · "):ans.selected):"(sin respuesta)";
     const ok=ans?ans.correct:false;
     const badge='<span class="badge '+(ok?"ok":"bad")+'">'+(ok?"OK":"NO")+'</span>';
     const pts=ans ? ans.totalPoints : 0;
@@ -1779,7 +1942,7 @@ function buildReport(summary){
 
     return '<div class="mini">'
       +'<div class="thumb"><img alt="Miniatura" src="'+img.dataUrl+'"></div>'
-      +'<div><div class="mono">#'+(i+1)+' · Correcta: '+escapeHtml(img.name)+'</div>'
+      +'<div><div class="mono">#'+(i+1)+' · Correcta: '+escapeHtml(app.mode==="kahoot"&&img.kahoot?img.kahoot.options.filter((_,j)=>img.kahoot.correct.includes(j)).join(" · "):img.name)+'</div>'
       +'<div style="color:var(--muted);font-weight:800;font-size:12px;margin-top:4px">Respuesta: <b>'+escapeHtml(user)+'</b></div>'
       +'<div style="color:var(--muted);font-weight:800;font-size:12px;margin-top:4px">'+escapeHtml(detail)+'</div></div>'
       +'<div style="text-align:right">'+badge+'</div>'
@@ -1896,7 +2059,7 @@ function stopConfetti(){
 }
 
 function finish(timeout){
-  if(app.mode!=="quizz" || app.finished) return;
+  if(app.mode==="random" || app.finished) return;
   app.finished=true;
   stopTimer(); app.endedAt=Date.now();
 
@@ -1980,11 +2143,11 @@ function restart(){
   const ss=$("#scoreSummary"); if(ss) ss.innerHTML="";
   const sm=$("#scoreMsg"); if(sm) sm.style.display="none";
   $("#btnReview").textContent="Mostrar revisión";
-  $("#btnFinish").style.display=(app.mode==="quizz")?"inline-flex":"none";
-  $("#opts").style.display=(app.mode==="quizz")?"grid":"none";
+  $("#btnFinish").style.display=(app.mode!=="random")?"inline-flex":"none";
+  $("#opts").style.display=(app.mode!=="random")?"grid":"none";
   stopTimer();
   buildOrder();
-  if(app.mode==="quizz" && app.cfg.timerEnabled) startTimer();
+  if(app.mode!=="random" && app.cfg.timerEnabled) startTimer();
   render();
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -1997,7 +2160,7 @@ function toggleReview(){
 }
 
 function onKey(e){
-  if(app.mode==="quizz"){
+  if(app.mode!=="random"){
     if(e.key>="1" && e.key<="6"){
       const idx=Number(e.key)-1;
       const btns=$$("#opts .opt");
@@ -2045,13 +2208,13 @@ function login(){
 
 function init(){
   $("#title").textContent=app.cfg.title||"Quizz Image";
-  $("#subLine").textContent=(app.mode==="quizz"?"MODO QUIZZ":"MODO ALEATORIO");
+  $("#subLine").textContent=(app.mode==="quizz"?"MODO QUIZZ":app.mode==="kahoot"?"MODO PREGUNTA":"MODO ALEATORIO");
 
   buildOrder();
   bind();
 
   // timer bar init
-  setTimerBarVisible(app.mode==="quizz" && app.cfg.timerEnabled);
+  setTimerBarVisible(app.mode!=="random" && app.cfg.timerEnabled);
 
   // print hero base
   updatePrintHero(0,false,0);
@@ -2121,6 +2284,7 @@ init();
     +'<div class="score" id="phScore">Puntos: 0</div>'
   +'</div>'
 
+  +'<div id="questionText" class="msg" style="display:none;font-size:18px;text-align:center"></div>'
   +'<div class="mainImg">'
     +'<img id="imgMain" alt="Imagen" src=""/>'
   +'</div>'
@@ -2249,6 +2413,7 @@ function rerender(clearPreviewToo=false){
   syncStats();
   renderList();
   syncSelectedUI();
+  if(state.mode==="kahoot") renderPreguntaEditor();
   validate();
   if(clearPreviewToo) clearPreview();
 }
@@ -2329,6 +2494,7 @@ el.mQuizz.addEventListener("click",()=>{
   state.mode="quizz";
   el.mQuizz.setAttribute("aria-pressed","true");
   el.mRand.setAttribute("aria-pressed","false");
+  el.mPregunta.setAttribute("aria-pressed","false");
   applyModeLocks();
   clearPreview();
   validate();
@@ -2337,10 +2503,26 @@ el.mRand.addEventListener("click",()=>{
   state.mode="random";
   el.mQuizz.setAttribute("aria-pressed","false");
   el.mRand.setAttribute("aria-pressed","true");
+  el.mPregunta.setAttribute("aria-pressed","false");
   applyModeLocks();
   clearPreview();
   validate();
 });
+
+
+el.mPregunta.addEventListener("click",()=>{
+  state.mode="kahoot";
+  el.mQuizz.setAttribute("aria-pressed","false"); el.mRand.setAttribute("aria-pressed","false"); el.mPregunta.setAttribute("aria-pressed","true");
+  applyModeLocks(); renderPreguntaEditor(); clearPreview(); validate();
+});
+el.kPrev.addEventListener("click",()=>{ savePreguntaEditor(); state.ui.kahootIndex--; renderPreguntaEditor(); });
+el.kNext.addEventListener("click",()=>{ savePreguntaEditor(); state.ui.kahootIndex++; renderPreguntaEditor(); });
+el.kQuestion.addEventListener("input",savePreguntaEditor);
+el.kOptCount.addEventListener("change",()=>{ savePreguntaEditor(); const it=currentPreguntaImage(); if(it){ ensurePreguntaData(it); const n=Number(el.kOptCount.value); it.kahoot.options=it.kahoot.options.slice(0,n); while(it.kahoot.options.length<n) it.kahoot.options.push(""); it.kahoot.correct=it.kahoot.correct.filter(i=>i<n); renderPreguntaEditor(); validate(); }});
+el.kOptions.addEventListener("input",()=>{ savePreguntaEditor(); validate(); });
+el.kOptions.addEventListener("change",()=>{ savePreguntaEditor(); validate(); });
+el.kCopyNext.addEventListener("click",()=>{ const a=kahootImages(); copyPreguntaData([a[state.ui.kahootIndex+1]]); state.ui.kahootIndex++; renderPreguntaEditor(); });
+el.kCopyAll.addEventListener("click",()=>copyPreguntaData(kahootImages()));
 
 // config change
 [
